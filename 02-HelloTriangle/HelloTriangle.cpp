@@ -1,7 +1,5 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
 #include <iostream>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -89,27 +87,47 @@ int main(int argc, char** argv)
   glDeleteShader(vertexShader);
   glDeleteShader(fragmentShader);
 
+  // float vertices[] = {
+  //   -0.5f, -0.5f, 0.0f, // left  
+  //   0.5f, -0.5f, 0.0f, // right 
+  //   0.0f,  0.5f, 0.0f  // top 
+  // };
+
   float vertices[] = {
-    -0.5f, -0.5f, 0.0f, // left  
-    0.5f, -0.5f, 0.0f, // right 
-    0.0f,  0.5f, 0.0f  // top 
+    0.5f,  0.5f, 0.0f,  // top right
+    0.5f, -0.5f, 0.0f,  // bottom right
+    -0.5f, -0.5f, 0.0f,  // bottom left
+    -0.5f,  0.5f, 0.0f   // top left
   };
 
-  unsigned int VBO, VAO;
+  unsigned int indices[] = {
+    0, 1, 3,  // triangle 1
+    1, 2, 3   // triangle 2
+  };
+
+  unsigned int VBO, VAO, EBO;
   glGenVertexArrays(1, &VAO);
   glGenBuffers(1, &VBO);
+  glGenBuffers(1, &EBO);
+
   glBindVertexArray(VAO);
 
-
+  // 1. 绑定并填充VBO (顶点数据)
   glBindBuffer(GL_ARRAY_BUFFER, VBO);
   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
+  // 2. 绑定并填充EBO (索引数据)
+    //! 必须在VAO绑定的状态下绑定EBO
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+  // 3. 设置指针属性 
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
   glEnableVertexAttribArray(0);
 
   // 0 means unbind; optional here depends on situations
   glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindVertexArray(0);
+  glBindVertexArray(0); // 解绑VAO
 
   // render loop
   while (!glfwWindowShouldClose(window))
@@ -121,7 +139,10 @@ int main(int argc, char** argv)
 
     glUseProgram(shaderProgram);
     glBindVertexArray(VAO); // we only have a single VAO, no need to bind it every time
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    // glDrawArrays(GL_TRIANGLES, 0, 3);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0); // 绘制模式, 索引数量, 索引类型, 偏移量
+    // glBindVertexArray(0); // 解绑VAO
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // wireframe mode
 
     glfwSwapBuffers(window);
     glfwPollEvents();
@@ -129,6 +150,7 @@ int main(int argc, char** argv)
 
   glDeleteVertexArrays(1, &VAO);
   glDeleteBuffers(1, &VBO);
+  glDeleteBuffers(1, &EBO);
   glDeleteProgram(shaderProgram);
 
   glfwTerminate();

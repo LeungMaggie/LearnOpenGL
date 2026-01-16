@@ -82,9 +82,9 @@ int main(int argc, char** argv)
     glClear(GL_COLOR_BUFFER_BIT);
 
     shader.use();
+    shader.set_float("offsetX", 0.2);
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-    // shader.set_float()
 
     glfwSwapBuffers(window);
     glfwPollEvents();

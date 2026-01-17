@@ -43,12 +43,12 @@ Learn OpenGL exercices
     |   |   ├── glad/        # from glad/include
     |   |   ├── GLFW/        # put glfw3.h from path/to/glfw-3.4/include/GLFW
     |   |   └── KHR/
-    |   └── lib/
-    |      └── glfw3.lib    # from path/to/glfw-3.4/build/src/Release
+    |   ├── lib/
+    |   |   └── glfw3.lib    # from path/to/glfw-3.4/build/src/Release
+    |   └── src/
+    |       └── glad.c
     |
     └── MyOpenGLProject/
-        ├── src/
-        |   └── glad.c
         ├── CMakeLists.txt
         └── main.cpp
     ```
@@ -62,7 +62,7 @@ Learn OpenGL exercices
     link_directories("${GL_LIB_PATH}/lib")
 
     set(EXE_NAME "MyOpenGLProject")
-    add_executable(${EXE_NAME} main.cpp src/glad.c)
+    add_executable(${EXE_NAME} main.cpp ${GL_LIB_PATH}/src/glad.c)
     target_link_libraries(${EXE_NAME} glfw3 opengl32.lib)
     ```
 5. Same way to build every `MyOpenGLProject`:

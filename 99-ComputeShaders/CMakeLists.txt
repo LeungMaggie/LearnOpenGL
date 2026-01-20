@@ -13,6 +13,8 @@ add_executable(
     main.cpp
     ComputeShader.h
     ComputeShader.cpp
+    Shader.h
+    Shader.cpp
     ${GL_LIB_PATH}/src/glad.c
     ${GL_LIB_PATH}/src/stb_image.cpp
 )

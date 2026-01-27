@@ -8,15 +8,15 @@
 int main()
 {
   unsigned int windowWidth = 800;
-  unsigned int windowHeight = 600;
+  unsigned int windowHeight = 800;
   std::string windowTitle = "RealTimeLBM2D";
   auto window = gl_init_window(windowWidth, windowHeight, windowTitle);
 
   ComputeShader compShader("../circle.comp");
 
   unsigned int texOutput;
-  unsigned int texWidth = windowWidth;
-  unsigned int texHeight = windowHeight;
+  unsigned int texWidth = 128;
+  unsigned int texHeight = 128;
   gl_init_texture(texOutput, texWidth, texHeight, GL_TEXTURE0);
 
   unsigned int fbo;
@@ -24,7 +24,7 @@ int main()
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texOutput, 0);
 
-  unsigned int compShaderLocalSize[] = {texWidth / 10, texHeight / 10, 1};
+  unsigned int compShaderLocalSize[] = {texWidth / 16, texHeight / 16, 1};
 
   while (!glfwWindowShouldClose(window))
   {

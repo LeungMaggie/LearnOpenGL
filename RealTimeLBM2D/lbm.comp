@@ -1,0 +1,150 @@
+#version 430 core
+
+// SSBO
+layout (std430, binding = 0) readonly buffer inBuff { float fIn[]; };
+layout (std430, binding = 1) writeonly buffer outBuff { float fOut[]; };
+
+// variables
+uniform int nx;
+uniform int ny;
+uniform int strideSoA; // == (nx + 2) * (ny + 2)
+
+uniform int dirNum;
+uniform float omega;
+
+const float wt[9] = float[](4.0 / 9.0,
+  1.0 / 9.0, 1.0 / 9.0, 1.0 / 9.0, 1.0 / 9.0,
+  1.0 / 36.0, 1.0 / 36.0, 1.0 / 36.0, 1.0 / 36.0);
+
+const int ex[9] = int[](0, 1, 0, -1, 0, 1, -1, -1, 1);
+const int ey[9] = int[](0, 0, 1, 0, -1, 1, 1, -1, -1);
+const int opp[9] = int[](0, 3, 4, 1, 2, 7, 8, 5, 6);
+
+// helper functions
+int get_SoA_idx(int iDir, int ptId)
+{
+  return iDir * strideSoA + ptId;
+}
+
+int get_ptId(ivec2 pos)
+{
+  return (pos.y + 1) * (nx + 2) + (pos.x + 1);
+}
+
+void load_local_pdf(inout float fLocal[9], int numPts, int ptId)
+{
+  for (int i = 0; i < 9; ++i)
+  {
+    // int idx = i * numPts + ptId;
+    int idx = get_SoA_idx(i, ptId);
+    fLocal[i] = fIn[idx];
+  }
+}
+
+void compute_macro(inout vec3 rhoUV, float fLocal[9])
+{
+  rhoUV = vec3(0.0, 0.0, 0.0);
+  for (int i = 0; i < 9; ++i)
+  {
+    rhoUV.x += fLocal[i];
+    rhoUV.y += fLocal[i] * ex[i];
+    rhoUV.z += fLocal[i] * ey[i];
+  }
+  if (rhoUV.x > 0.0)
+  {
+    rhoUV.y = rhoUV.y / rhoUV.x;
+    rhoUV.z = rhoUV.z / rhoUV.x;
+  }
+}
+
+float compute_feq(int iDir, float rho, float u, float v)
+{
+  float ue = u * ex[iDir] + v * ey[iDir];
+  float uu = u * u + v * v;
+  float feq = wt[iDir] * rho * (1.0 + 3.0 * ue + 4.5 * ue * ue - 1.5 * uu);
+  return feq;
+}
+
+void collision_BGK(inout float fLocal[9], vec3 rhoUV)
+{
+  for (int i = 0; i < 9; ++i)
+  {
+    fLocal[i] = fLocal[i] - (fLocal[i] - compute_feq(i, rhoUV.x, rhoUV.y, rhoUV.z)) * omega;
+  }
+}
+
+void streaming(float fLocal[9], ivec2 pos)
+{
+  for (int i = 0; i < 9; ++i)
+  {
+    ivec2 posNb = vec2(pos.x + ex[i], pos.y + ey[i]);
+    if (posNb.x < -1 || posNb.x > (nx + 1) ||
+        posNb.y < -1 || posNb.y > (ny + 1))
+    {
+      continue;
+    }
+    int ptIdNb = get_ptId(posNb);
+    int idxNb = get_SoA_idx(i, ptIdNb);
+    fOut[idxNb] = fLocal[i];
+  }
+}
+
+void point_source()
+{
+
+}
+
+void boundary_halfway_bounceback()
+{
+
+}
+
+void boundary_outflow()
+{
+
+}
+
+void periodic()
+{
+
+}
+
+// kernel
+
+layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+layout (rgba32f, binding = 2) uniform image2D imgOutput;
+layout (location = 0) uniform float time;
+
+void main()
+{
+  vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+  // 1. get current grid point position
+  ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+  if (pos.x >= nx || pos.y >= ny)
+  {
+    return;
+  }
+
+  int ptId = get_ptId(pos);
+  int numPts = nx * ny;
+  float fLocal[dirNum];
+  load_local_pdf(fLocal, numPts, ptId);
+
+  // 2. calculate macro variables
+  vec3 macroLocal = vec3(0.0, 0.0, 0.0);
+  compute_macro(macroLocal, fLocal);
+
+  // 3. collision & streaming
+  collision_BGK(fLocal, macroLocal);
+  streaming(fLocal, pos);
+
+  // 4. boundary conditions
+  //! need another compute shader
+
+  uv = normalize(vec2(macroLocal.y, macroLocal.z));
+  color.x = uv.x;
+  color.y = uv.y;
+  color.z = 0.5;
+  imageStore(imgOutput, pos, color);
+}
+

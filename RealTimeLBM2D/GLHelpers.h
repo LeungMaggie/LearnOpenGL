@@ -16,6 +16,12 @@ GLFWwindow* gl_init_window(
   const unsigned int& height,
   const std::string& title);
 
+void gl_init_obstable_tex_fbo(
+  unsigned int& obstacleTexID,
+  unsigned int& obstacleFboID,
+  const unsigned int& width,
+  const unsigned int& height);
+
 void gl_init_texture(
   unsigned int& texID,
   const unsigned int& width,

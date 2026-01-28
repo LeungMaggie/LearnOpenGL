@@ -67,6 +67,33 @@ void gl_init_texture(
   texID = texture;
 }
 
+void gl_init_obstable_tex_fbo(
+  unsigned int& obstacleTexID,
+  unsigned int& obstacleFboID,
+  const unsigned int& width,
+  const unsigned int& height)
+{
+  glGenTextures(1, &obstacleTexID);
+  glBindTexture(GL_TEXTURE_2D, obstacleTexID);
+  //! use GL_R8: need only 1 GL_RED channel to store 0 and 1
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, width, height, 0, GL_RED, GL_UNSIGNED_BYTE, NULL);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+  glGenFramebuffers(1, &obstacleFboID);
+  glBindFramebuffer(GL_FRAMEBUFFER, obstacleFboID);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, obstacleTexID, 0);
+
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+  {
+    std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+  }
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 void gl_init_vao_vbo(
   unsigned int& vaoID,
   unsigned int& vboID,

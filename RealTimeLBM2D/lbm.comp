@@ -31,11 +31,10 @@ int get_ptId(ivec2 pos)
   return (pos.y + 1) * (nx + 2) + (pos.x + 1);
 }
 
-void load_local_pdf(inout float fLocal[9], int numPts, int ptId)
+void load_local_pdf(inout float fLocal[9], int ptId)
 {
   for (int i = 0; i < 9; ++i)
   {
-    // int idx = i * numPts + ptId;
     int idx = get_SoA_idx(i, ptId);
     fLocal[i] = fIn[idx];
   }
@@ -78,8 +77,8 @@ void streaming(float fLocal[9], ivec2 pos)
   for (int i = 0; i < 9; ++i)
   {
     ivec2 posNb = vec2(pos.x + ex[i], pos.y + ey[i]);
-    if (posNb.x < -1 || posNb.x > (nx + 1) ||
-        posNb.y < -1 || posNb.y > (ny + 1))
+    if (posNb.x < 0 || posNb.x > nx ||
+        posNb.y < 0 || posNb.y > ny)
     {
       continue;
     }
@@ -87,26 +86,6 @@ void streaming(float fLocal[9], ivec2 pos)
     int idxNb = get_SoA_idx(i, ptIdNb);
     fOut[idxNb] = fLocal[i];
   }
-}
-
-void point_source()
-{
-
-}
-
-void boundary_halfway_bounceback()
-{
-
-}
-
-void boundary_outflow()
-{
-
-}
-
-void periodic()
-{
-
 }
 
 // kernel
@@ -126,9 +105,8 @@ void main()
   }
 
   int ptId = get_ptId(pos);
-  int numPts = nx * ny;
   float fLocal[dirNum];
-  load_local_pdf(fLocal, numPts, ptId);
+  load_local_pdf(fLocal, ptId);
 
   // 2. calculate macro variables
   vec3 macroLocal = vec3(0.0, 0.0, 0.0);

@@ -62,8 +62,24 @@ void gl_init_texture(
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
   glBindImageTexture(0, texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+  texID = texture;
+}
+
+void gl_init_mask_texture(
+  unsigned int& texID,
+  const uint16_t* maskData,
+  const unsigned int& width,
+  const unsigned int& height,
+  const GLenum& glTexture)
+{
+  unsigned int texture;
+  glGenTextures(1, &texture);
   glActiveTexture(glTexture);
   glBindTexture(GL_TEXTURE_2D, texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, width, height, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, maskData);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glBindImageTexture(0, texture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R8UI);
   texID = texture;
 }
 

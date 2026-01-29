@@ -116,9 +116,6 @@ void main()
   collision_BGK(fLocal, macroLocal);
   streaming(fLocal, pos);
 
-  // 4. boundary conditions
-  //! need another compute shader
-
   uv = normalize(vec2(macroLocal.y, macroLocal.z));
   color.x = uv.x;
   color.y = uv.y;

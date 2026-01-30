@@ -4,8 +4,6 @@
 layout (std430, binding = 0) readonly buffer inBuff { float fIn[]; };
 layout (std430, binding = 1) writeonly buffer outBuff { float fOut[]; };
 
-
-
 // variables
 uniform int nx;
 uniform int ny;
@@ -21,6 +19,10 @@ const float wt[9] = float[](4.0 / 9.0,
 const int ex[9] = int[](0, 1, 0, -1, 0, 1, -1, -1, 1);
 const int ey[9] = int[](0, 0, 1, 0, -1, 1, 1, -1, -1);
 const int opp[9] = int[](0, 3, 4, 1, 2, 7, 8, 5, 6);
+const int east[3] = int[](1, 5, 8);
+const int south[3] = int[](4, 7, 8);
+const int west[3] = int[](3, 6, 7);
+const int north[3] = int[](2, 5, 6);
 
 int get_SoA_idx(int iDir, int ptId)
 {
@@ -30,6 +32,16 @@ int get_SoA_idx(int iDir, int ptId)
 int get_ptId(ivec2 pos)
 {
   return (pos.y + 1) * (nx + 2) + (pos.x + 1);
+}
+
+bool is_valid(ivec2 pos)
+{
+  return (pos.x >= -1 && pos.x <= nx && pos.y >= -1 && pos.y <= ny);
+}
+
+bool is_inner(ivec2 pos)
+{
+  return (pos.x >= 0 && pos.x < nx && pos.y >= 0 && pos.y < ny);
 }
 
 void load_local_pdf(inout float fLocal[9], int ptId)
@@ -49,27 +61,34 @@ void point_source()
 // Martin Geier et al., 2015 
 void boundary_outflow(ivec2 pos)
 {
-  int i = 0;
-  // x min
-  if (pos.x == 0 && !(pos.y == 0 || pos.y == ny))
-    i = 1;
-  else if (pos.x == nx && !(pos.y == 0 || pos.y == ny))
-    i = 3;
-  else if (pos.y == 0 && !(pos.x == 0 || pos.x == nx))
-    i = 2;
-  else if (pos.y == ny && !(pos.x == 0 || pos.x == nx))
-    i = 4;
+  ivec3 iVec = ivec3(0, 0, 0);
+  if (pos.x == 0)
+    iVec = east;
+  else if (pos.x == nx - 1)
+    iVec = west;
+  else if (pos.y == 0)
+    iVec = north;
+  else if (pos.y == ny - 1)
+    iVec = south;
   else
     return;
 
-  float ctheta = 1.0 / sqrt(3.0);
-  int ptId = get_ptId(pos);
-  int pt1stInnerNbId = get_ptId(ivec2(pos.x + ex[i], pos.y + ey[i]));
-  int pt2ndInnerNbId = get_ptId(ivec2(pos.x + ex[i], pos.y + ey[i]));
-  int idx = get_SoA_idx(i, ptId);
-  int idx1stInnerNb = get_SoA_idx(i, pt1stInnerNbId);
-  int idx2ndInnerNb = get_SoA_idx(i, pt2ndInnerNbId);
-  fOut[idx] = fIn[idx2ndInnerNb] * ctheta + (1.0 - ctheta) * fIn[idx1stInnerNb];
+  for (int d = 0; d < 3; ++d)
+  {
+    int i = iVec[d];
+    float ctheta = 1.0 / sqrt(3.0);
+    int ptId = get_ptId(pos);
+    ivec2 pos1stInner = ivec2(pos.x + ex[i], pos.y + ey[i]);
+    ivec2 pos2ndInner = ivec2(pos.x + ex[i], pos.y + ey[i]);
+    if (!is_valid(pos1stInner) || !is_valid(pos2ndInner))
+      continue;
+    int pt1stInnerNbId = get_ptId(pos1stInner);
+    int pt2ndInnerNbId = get_ptId(pos2ndInner);
+    int idx = get_SoA_idx(i, ptId);
+    int idx1stInnerNb = get_SoA_idx(i, pt1stInnerNbId);
+    int idx2ndInnerNb = get_SoA_idx(i, pt2ndInnerNbId);
+    fOut[idx] = fIn[idx2ndInnerNb] * ctheta + (1.0 - ctheta) * fIn[idx1stInnerNb];
+  }
 }
 
 void boundary_farfield()
@@ -90,11 +109,11 @@ layout (location = 0) readonly uniform float time;
 void main()
 {
   ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
-  if (pos.x >= nx || pos.y >= ny)
+  if (!is_inner(pos))
   {
     return;
   }
-  
+
   float mask = imageLoad(obstacleMask, pos).r;
   if (mask < 0.5) // fluid
   {
@@ -102,6 +121,7 @@ void main()
   }
 
   // fIn: post-streaming pdf
+  // bounce back
   for (int i = 0; i < 9; ++i)
   {
     ivec2 posNb = ivec2(pos.x + ex[i], pos.y + ey[i]);
@@ -117,5 +137,5 @@ void main()
     fOut[idxNb] = fIn[idxOpp];
   }
 
-
+  boundary_outflow(pos);
 }

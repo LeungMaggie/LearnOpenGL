@@ -4,13 +4,16 @@
 layout (std430, binding = 0) readonly buffer inBuff { float fIn[]; };
 layout (std430, binding = 1) writeonly buffer outBuff { float fOut[]; };
 
-// variables
-uniform int nx;
-uniform int ny;
-uniform int strideSoA; // == (nx + 2) * (ny + 2)
+// mask
+layout (r8, binding = 2) readonly uniform image2D obstacleMask;
+// layout (binding = 2, r8ui) readonly uniform uimage2D boundaryMask;
 
-uniform int dirNum;
-uniform float omega;
+// variables
+layout (location = 0) readonly uniform int nx;
+layout (location = 1) readonly uniform int ny;
+layout (location = 2) readonly uniform int strideSoA; // == (nx + 2) * (ny + 2)
+layout (location = 3) readonly uniform float omega;
+layout (location = 4) readonly uniform float time;
 
 const float wt[9] = float[](4.0 / 9.0,
   1.0 / 9.0, 1.0 / 9.0, 1.0 / 9.0, 1.0 / 9.0,
@@ -19,10 +22,10 @@ const float wt[9] = float[](4.0 / 9.0,
 const int ex[9] = int[](0, 1, 0, -1, 0, 1, -1, -1, 1);
 const int ey[9] = int[](0, 0, 1, 0, -1, 1, 1, -1, -1);
 const int opp[9] = int[](0, 3, 4, 1, 2, 7, 8, 5, 6);
-const int east[3] = int[](1, 5, 8);
-const int south[3] = int[](4, 7, 8);
-const int west[3] = int[](3, 6, 7);
-const int north[3] = int[](2, 5, 6);
+const ivec3 east = ivec3(1, 5, 8);
+const ivec3 south = ivec3(4, 7, 8);
+const ivec3 west = ivec3(3, 6, 7);
+const ivec3 north = ivec3(2, 5, 6);
 
 int get_SoA_idx(int iDir, int ptId)
 {
@@ -101,10 +104,6 @@ void periodic()
 }
 
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
-// mask
-layout (r8, binding = 2) readonly uniform image2D obstacleMask;
-layout (binding = 2, r8ui) readonly uniform uimage2D boundaryMask;
-layout (location = 0) readonly uniform float time;
 
 void main()
 {
@@ -125,6 +124,10 @@ void main()
   for (int i = 0; i < 9; ++i)
   {
     ivec2 posNb = ivec2(pos.x + ex[i], pos.y + ey[i]);
+    if (!is_valid(posNb))
+    {
+      continue;
+    }
     float maskNb = imageLoad(obstacleMask, posNb).r;
     if (maskNb > 0.5)
     {

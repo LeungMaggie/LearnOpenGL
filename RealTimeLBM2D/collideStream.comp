@@ -4,13 +4,16 @@
 layout (std430, binding = 0) readonly buffer inBuff { float fIn[]; };
 layout (std430, binding = 1) writeonly buffer outBuff { float fOut[]; };
 
+// output
+layout (rgba32f, binding = 2) writeonly uniform image2D imgOutput;
+
 // variables
 uniform int nx;
 uniform int ny;
 uniform int strideSoA; // == (nx + 2) * (ny + 2)
 
-uniform int dirNum;
 uniform float omega;
+layout (location = 0) uniform float time;
 
 const float wt[9] = float[](4.0 / 9.0,
   1.0 / 9.0, 1.0 / 9.0, 1.0 / 9.0, 1.0 / 9.0,
@@ -76,7 +79,7 @@ void streaming(float fLocal[9], ivec2 pos)
 {
   for (int i = 0; i < 9; ++i)
   {
-    ivec2 posNb = vec2(pos.x + ex[i], pos.y + ey[i]);
+    ivec2 posNb = ivec2(pos.x + ex[i], pos.y + ey[i]);
     if (posNb.x < 0 || posNb.x > nx ||
         posNb.y < 0 || posNb.y > ny)
     {
@@ -91,8 +94,6 @@ void streaming(float fLocal[9], ivec2 pos)
 // kernel
 
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
-layout (rgba32f, binding = 2) uniform image2D imgOutput;
-layout (location = 0) uniform float time;
 
 void main()
 {
@@ -105,7 +106,7 @@ void main()
   }
 
   int ptId = get_ptId(pos);
-  float fLocal[dirNum];
+  float fLocal[9];
   load_local_pdf(fLocal, ptId);
 
   // 2. calculate macro variables
@@ -116,7 +117,7 @@ void main()
   collision_BGK(fLocal, macroLocal);
   streaming(fLocal, pos);
 
-  uv = normalize(vec2(macroLocal.y, macroLocal.z));
+  vec2 uv = normalize(vec2(macroLocal.y, macroLocal.z));
   color.x = uv.x;
   color.y = uv.y;
   color.z = 0.5;

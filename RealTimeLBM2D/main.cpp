@@ -32,8 +32,8 @@ int main()
 
   // output texture
   unsigned int texOutput;
-  unsigned int texWidth = 126;
-  unsigned int texHeight = 126;
+  unsigned int texWidth = 8;
+  unsigned int texHeight = 8;
   gl_init_texture(texOutput, texWidth + 2, texHeight + 2, GL_TEXTURE0);
 
   unsigned int fboOutput;
@@ -44,7 +44,7 @@ int main()
   // obstacles
   unsigned int texObstacle;
   unsigned int fboObstacle;
-  gl_init_obstable_tex_fbo(texObstacle, fboObstacle, texWidth + 2, texHeight + 2);
+  gl_init_obstacle_tex_fbo(texObstacle, fboObstacle, texWidth + 2, texHeight + 2);
   //! tmp obstacle
   float vertices[] = {
     0.4f * (float)texWidth, 0.4f * (float)texHeight, 0.0f,
@@ -71,7 +71,7 @@ int main()
   glGenBuffers(1, &ssboPdfIn);
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboPdfIn);
   std::vector<float> pdfIn(strideSoA * 9, 0.0f);
-  std::vector<float> initVel{0.1f, 0.0f};
+  std::vector<float> initVel{0.0f, 0.0f};
   for (int i = 0; i < 9; ++i)
   {
     float feq = compute_feq(i, 1.0f, initVel[0], initVel[1]);
@@ -107,45 +107,76 @@ int main()
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssboPdfIn);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssboPdfOut);
 
-  unsigned int compShaderLocalSize[] = {texWidth / 16, texHeight / 16, 1};
+  unsigned int compShaderLocalSize[] = {(texWidth + 2) / 16, (texHeight + 2) / 16, 1};
   PingPongBuffer pdfBuffer(ssboPdfIn, ssboPdfOut);
 
-  while (!glfwWindowShouldClose(window))
+  unsigned int queries[2];
+  glGenQueries(2, queries);
+
+  // debug buffer
+  unsigned int ssboDebug;
+  glGenBuffers(1, &ssboDebug);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboDebug);
+  glBufferData(GL_SHADER_STORAGE_BUFFER, 9 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+
+  int count = 0;
+  while (!glfwWindowShouldClose(window) && count < 10)
   {
     process_input(window);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     float currentTime = (float)glfwGetTime();
+    glQueryCounter(queries[0], GL_TIMESTAMP);
 
-    // glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, pdfBuffer.get_reader());
-    // glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, pdfBuffer.get_writer());
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, pdfBuffer.get_reader());
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, pdfBuffer.get_writer());
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 10, ssboDebug);
 
     glBindVertexArray(vaoObstacle);
     obstacleShader.use();
     glm::mat4 model(1.0f);
-    model = glm::translate(model, glm::vec3((float)texWidth * 0.5f, (float)texHeight * 0.5f, 0.0f));
-    model = glm::rotate(model, glm::radians(20.0f) * currentTime, glm::vec3(0.0f, 0.0f, 1.0f));
-    model = glm::translate(model, -glm::vec3((float)texWidth * 0.5f, (float)texHeight * 0.5f, 0.0f));
+    // model = glm::translate(model, glm::vec3((float)texWidth * 0.5f, (float)texHeight * 0.5f, 0.0f));
+    // model = glm::rotate(model, glm::radians(20.0f) * currentTime, glm::vec3(0.0f, 0.0f, 1.0f));
+    // model = glm::translate(model, -glm::vec3((float)texWidth * 0.5f, (float)texHeight * 0.5f, 0.0f));
     glm::mat4 projection = glm::ortho(0.0f, (float)texWidth, 0.0f, (float)texHeight);
     obstacleShader.set_mat4("model", model);
     obstacleShader.set_mat4("projection", projection);
 
-    // collideStreamShader.use();
-    // glDispatchCompute(compShaderLocalSize[0], compShaderLocalSize[1], compShaderLocalSize[2]);
-    // glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+    collideStreamShader.use();
+    glDispatchCompute(compShaderLocalSize[0], compShaderLocalSize[1], compShaderLocalSize[2]);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboDebug);
+    float debugVal[9];
+    glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 9 * sizeof(float), debugVal);
+    std::cout << "step=" << count << std::endl;
+    std::cout << "f = ";
+    for (int i = 0; i < 9; ++i)
+    {
+      printf("%.4f    ", debugVal[i]);
+    }
+    std::cout << std::endl;
 
     // bcShader.use();
     // bcShader.set_float("time", currentTime);
     // glDispatchCompute(compShaderLocalSize[0], compShaderLocalSize[1], compShaderLocalSize[2]);
     // glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
-    // glBindFramebuffer(GL_READ_FRAMEBUFFER, fboOutput); 
-    // glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    // glBlitFramebuffer(0, 0, texWidth, texHeight,
-    //                   0, 0, texWidth, texHeight,
-    //                   GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fboOutput); 
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glBlitFramebuffer(0, 0, texWidth, texHeight,
+                      0, 0, windowWidth, windowHeight,
+                      GL_COLOR_BUFFER_BIT, GL_NEAREST);
     glDrawArrays(GL_TRIANGLES, 0, 3);
-    // pdfBuffer.swap();
+    pdfBuffer.swap();
+
+    glQueryCounter(queries[1], GL_TIMESTAMP);
+    GLuint64 timeStart, timeEnd;
+    glGetQueryObjectui64v(queries[0], GL_QUERY_RESULT, &timeStart);
+    glGetQueryObjectui64v(queries[1], GL_QUERY_RESULT, &timeEnd);
+    double durationSeconds = (timeEnd - timeStart) / 10e9;
+    // printf("Render Time: %.6f s\n", durationSeconds);
+
+    count++;
     glfwSwapBuffers(window);
     glfwPollEvents();
   }

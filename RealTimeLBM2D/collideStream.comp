@@ -3,6 +3,7 @@
 // SSBO
 layout (std430, binding = 0) readonly buffer inBuff { float fIn[]; };
 layout (std430, binding = 1) writeonly buffer outBuff { float fOut[]; };
+layout (std430, binding = 10) writeonly buffer debugBuff { float debugValues[]; };
 
 // output
 layout (rgba32f, binding = 2) writeonly uniform image2D imgOutput;
@@ -24,6 +25,16 @@ const int ey[9] = int[](0, 0, 1, 0, -1, 1, 1, -1, -1);
 const int opp[9] = int[](0, 3, 4, 1, 2, 7, 8, 5, 6);
 
 // helper functions
+bool is_valid(ivec2 pos)
+{
+  return (pos.x >= -1 && pos.x <= nx && pos.y >= -1 && pos.y <= ny);
+}
+
+bool is_inner(ivec2 pos)
+{
+  return (pos.x >= 0 && pos.x < nx && pos.y >= 0 && pos.y < ny);
+}
+
 int get_SoA_idx(int iDir, int ptId)
 {
   return iDir * strideSoA + ptId;
@@ -80,8 +91,7 @@ void streaming(float fLocal[9], ivec2 pos)
   for (int i = 0; i < 9; ++i)
   {
     ivec2 posNb = ivec2(pos.x + ex[i], pos.y + ey[i]);
-    if (posNb.x < 0 || posNb.x > nx ||
-        posNb.y < 0 || posNb.y > ny)
+    if (!is_valid(posNb))
     {
       continue;
     }
@@ -100,7 +110,7 @@ void main()
   vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
   // 1. get current grid point position
   ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
-  if (pos.x >= nx || pos.y >= ny)
+  if (!is_inner(pos))
   {
     return;
   }
@@ -108,6 +118,16 @@ void main()
   int ptId = get_ptId(pos);
   float fLocal[9];
   load_local_pdf(fLocal, ptId);
+
+  // if (pos.x == 0 && pos.y == 0)
+  // {
+  //   for (int i = 0; i < 9; ++i)
+  //   {
+  //     debugValues[i] = fLocal[i];
+  //   }
+    debugValues[0] = 1.0;
+    debugValues[1] = 2.0;
+  // }
 
   // 2. calculate macro variables
   vec3 macroLocal = vec3(0.0, 0.0, 0.0);

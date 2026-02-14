@@ -29,7 +29,7 @@ void gl_init_mask_texture(
   const unsigned int& height,
   const GLenum& glTexture);
 
-void gl_init_obstable_tex_fbo(
+void gl_init_obstacle_tex_fbo(
   unsigned int& obstacleTexID,
   unsigned int& obstacleFboID,
   const unsigned int& width,
